@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文言</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #1f2933;
+      --muted: #607080;
+      --line: #d7dde4;
+      --accent: #176b87;
+      --accent-strong: #0f4f63;
+      --danger: #a33a2b;
+      --ok: #1f7a4d;
+      font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      width: min(960px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 32px;
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: 24px;
+      font-weight: 650;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input,
+    textarea,
+    select,
+    button {
+      font: inherit;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      padding: 9px 10px;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(23, 107, 135, 0.12);
+    }
+
+    button {
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-weight: 650;
+    }
+
+    button:disabled {
+      cursor: progress;
+      opacity: 0.7;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--accent-strong);
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .field {
+      min-width: 0;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status.ok {
+      color: var(--ok);
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .results {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .result-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    pre {
+      margin: 0;
+      min-height: 120px;
+      max-height: 520px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcfd;
+      padding: 12px;
+      line-height: 1.5;
+      font-family: Consolas, "Microsoft YaHei UI", monospace;
+      font-size: 13px;
+    }
+
+    .btn-secondary {
+      background: #e8edf2;
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: #d7dde4;
+    }
+
+    .bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .bar a {
+      color: var(--muted);
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    .bar a:hover {
+      color: var(--accent);
+    }
+
+    @media (max-width: 860px) {
+
+      .grid,
+      .results {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <div class="bar">
+      <h1 style="margin:0">文言</h1>
+      <a href="/v1">极简版</a>
+    </div>
+
+    <section class="panel">
+      <div class="grid">
+        <div class="field">
+          <label for="apiBase">接口地址</label>
+          <input id="apiBase" value="https://api.deepseek.com">
+        </div>
+        <div class="field">
+          <label for="model">模型</label>
+          <input id="model" value="deepseek-v4-flash">
+        </div>
+        <div class="field">
+          <label for="apiKey">API Key</label>
+          <input id="apiKey" type="password" autocomplete="off" placeholder="可在下方保存后持久化">
+        </div>
+        <div class="field full">
+          <label for="command">内容</label>
+          <textarea id="command"></textarea>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="send">发送</button>
+        <button id="saveConfig" class="btn-secondary">保存配置到</button>
+        <span id="status" class="status">等待输入</span>
+      </div>
+    </section>
+
+    <section class="results">
+      <div class="panel">
+        <div class="result-title"><span>提示词</span></div>
+        <pre id="promptBox"></pre>
+      </div>
+      <div class="panel">
+        <div class="result-title"><span>最终输出</span></div>
+        <pre id="outputBox"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const els = {
+      apiBase: document.getElementById("apiBase"),
+      model: document.getElementById("model"),
+      apiKey: document.getElementById("apiKey"),
+      command: document.getElementById("command"),
+      send: document.getElementById("send"),
+      saveConfig: document.getElementById("saveConfig"),
+      status: document.getElementById("status"),
+      promptBox: document.getElementById("promptBox"),
+      outputBox: document.getElementById("outputBox"),
+    };
+
+    function showStatus(text, type) {
+      els.status.textContent = text;
+      els.status.className = "status" + (type ? " " + type : "");
+    }
+
+    els.send.addEventListener("click", async () => {
+      els.send.disabled = true;
+      showStatus("请求中", "");
+      els.promptBox.textContent = "";
+      els.outputBox.textContent = "";
+
+      try {
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            command: els.command.value,
+            api_key: els.apiKey.value,
+            api_base: els.apiBase.value,
+            model: els.model.value,
+          }),
+        });
+        const data = await res.json();
+        els.promptBox.textContent = data.prompt || "";
+        els.outputBox.textContent = data.output || data.error || "";
+        showStatus(data.error ? "失败" : "完成", data.error ? "error" : "ok");
+      } catch (e) {
+        showStatus("失败", "error");
+      } finally {
+        els.send.disabled = false;
+      }
+    });
+
+    els.saveConfig.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            api_base: els.apiBase.value,
+            api_key: els.apiKey.value,
+            model: els.model.value,
+          }),
+        });
+        const data = await res.json();
+        showStatus(data.saved ? "已保存" : "无变更", "ok");
+      } catch (e) {
+        showStatus("保存失败", "error");
+      }
+    });
+  </script>
+</body>
+
+</html>

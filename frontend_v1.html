@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文言</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --text: #333;
+      --muted: #888;
+      --border: #ddd;
+      --accent: #333;
+      --accent-hover: #000;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font: 16px/1.6 "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 60px 20px 40px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+
+    textarea,
+    input {
+      font: inherit;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      outline: none;
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+      margin-bottom: 12px;
+    }
+
+    textarea:focus,
+    input:focus {
+      border-color: var(--accent);
+    }
+
+    button {
+      font: inherit;
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      padding: 8px 20px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: var(--accent-hover);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .output {
+      margin-top: 20px;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      min-height: 80px;
+      white-space: pre-wrap;
+      line-height: 1.7;
+    }
+
+    .output:empty::before {
+      content: "回应将显示在这里";
+      color: var(--muted);
+    }
+
+    .status {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    details {
+      margin-top: 32px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    details summary {
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+
+    details input {
+      margin-bottom: 6px;
+      font-size: 13px;
+      padding: 6px 10px;
+    }
+
+    .config-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    details .btn-sm {
+      font-size: 12px;
+      padding: 4px 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>结果</h1>
+    <textarea id="command" placeholder="输入你想说的话..."></textarea>
+    <button id="send">生成回应</button>
+    <span class="status" id="status"></span>
+    <div class="output" id="output"></div>
+
+    <details>
+      <summary>API 配置</summary>
+      <input id="apiKey" type="password" placeholder="API Key">
+      <input id="apiBase" placeholder="API Base URL" value="https://api.deepseek.com">
+      <input id="model" placeholder="Model" value="deepseek-v4-flash">
+      <div class="config-row">
+        <button id="saveConfig" class="btn-sm">保存配置</button>
+      </div>
+    </details>
+  </div>
+
+  <script>
+    const els = {
+      command: document.getElementById("command"),
+      send: document.getElementById("send"),
+      status: document.getElementById("status"),
+      output: document.getElementById("output"),
+      apiKey: document.getElementById("apiKey"),
+      apiBase: document.getElementById("apiBase"),
+      model: document.getElementById("model"),
+      saveConfig: document.getElementById("saveConfig"),
+    };
+
+    els.send.addEventListener("click", async () => {
+      const cmd = els.command.value.trim();
+      if (!cmd) return;
+      els.send.disabled = true;
+      els.status.textContent = "生成中...";
+      els.output.textContent = "";
+
+      try {
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            command: cmd,
+            api_key: els.apiKey.value,
+            api_base: els.apiBase.value,
+            model: els.model.value,
+          }),
+        });
+        const data = await res.json();
+        els.status.textContent = data.error ? data.error : "完成";
+        els.output.textContent = data.output || data.error || "";
+      } catch (e) {
+        els.status.textContent = "请求失败";
+      } finally {
+        els.send.disabled = false;
+      }
+    });
+
+    els.saveConfig.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            api_base: els.apiBase.value,
+            api_key: els.apiKey.value,
+            model: els.model.value,
+          }),
+        });
+        const data = await res.json();
+        els.status.textContent = data.saved ? "已保存" : "保存失败";
+      } catch (e) {
+        els.status.textContent = "保存失败";
+      }
+    });
+  </script>
+</body>
+
+</html>
