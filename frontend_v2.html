@@ -57,7 +57,8 @@
     }
 
     input,
-    textarea {
+    textarea,
+    select {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -74,7 +75,8 @@
     }
 
     input:focus,
-    textarea:focus {
+    textarea:focus,
+    select:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(23, 107, 135, 0.12);
     }
@@ -156,6 +158,34 @@
       font-size: 13px;
     }
 
+    .result-title .copy-btn {
+      background: none;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--muted);
+      padding: 3px 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .result-title:hover .copy-btn,
+    .copy-btn:hover {
+      opacity: 1;
+    }
+
+    .copy-btn:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .copy-btn.copied {
+      color: var(--ok);
+      border-color: var(--ok);
+    }
+
     pre {
       margin: 0;
       min-height: 120px;
@@ -172,6 +202,21 @@
       font-size: 13px;
     }
 
+    .error-msg {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      color: var(--danger);
+      font-size: 13px;
+      display: none;
+    }
+
+    .error-msg.visible {
+      display: block;
+    }
+
     .btn-secondary {
       background: #e8edf2;
       color: var(--text);
@@ -179,6 +224,17 @@
 
     .btn-secondary:hover {
       background: #d7dde4;
+    }
+
+    .btn-ghost {
+      background: #f3f6f8;
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+      background: #e8edf2;
+      color: var(--text);
     }
 
     .bar {
@@ -198,6 +254,40 @@
       color: var(--accent);
     }
 
+    .history-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .history-bar label {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .history-bar select {
+      flex: 1;
+      font-size: 13px;
+      padding: 6px 10px;
+    }
+
+    .history-bar .btn-sm {
+      font-size: 12px;
+      padding: 4px 12px;
+      background: #e8edf2;
+      color: var(--muted);
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .history-bar .btn-sm:hover {
+      background: #d7dde4;
+      color: var(--text);
+    }
+
     @media (max-width: 860px) {
 
       .grid,
@@ -212,18 +302,26 @@
   <main>
     <div class="bar">
       <h1 style="margin:0">文言</h1>
-      <a href="/v1">极简版</a>
+      <a href="/V1">极简版</a>
     </div>
 
     <section class="panel">
       <div class="grid">
         <div class="field">
-          <label for="apiBase">接口地址</label>
-          <input id="apiBase" value="https://api.deepseek.com">
+          <label for="apiType">协议类型</label>
+          <select id="apiType">
+            <option value="openai">OpenAI 兼容（DeepSeek / Moonshot / 智谱 / SiliconFlow / OpenRouter 等）</option>
+            <option value="gemini">Google Gemini 原生</option>
+            <option value="anthropic">Anthropic Claude 原生</option>
+          </select>
         </div>
         <div class="field">
           <label for="model">模型</label>
-          <input id="model" value="deepseek-v4-flash">
+          <input id="model">
+        </div>
+        <div class="field">
+          <label for="apiBase">接口地址</label>
+          <input id="apiBase">
         </div>
         <div class="field">
           <label for="apiKey">API Key</label>
@@ -236,64 +334,198 @@
       </div>
       <div class="actions">
         <button id="send">发送</button>
+        <button id="exampleInput" class="btn-ghost" type="button">范例输入</button>
         <button id="saveConfig" class="btn-secondary">保存配置到</button>
         <span id="status" class="status">等待输入</span>
       </div>
     </section>
 
+    <div class="error-msg" id="errorMsg"></div>
+
     <section class="results">
       <div class="panel">
-        <div class="result-title"><span>提示词</span></div>
+        <div class="result-title"><span>提示词</span><button class="copy-btn" data-target="promptBox" title="复制">📋</button></div>
         <pre id="promptBox"></pre>
       </div>
       <div class="panel">
-        <div class="result-title"><span>最终输出</span></div>
+        <div class="result-title"><span>最终输出</span><button class="copy-btn" data-target="outputBox" title="复制">📋</button></div>
         <pre id="outputBox"></pre>
       </div>
     </section>
+
+    <div class="history-bar">
+      <label>历史</label>
+      <select id="historySelect"><option value="">— 无 —</option></select>
+      <button class="btn-sm" id="clearHistory">清空</button>
+    </div>
   </main>
 
   <script>
     const els = {
+      apiType: document.getElementById("apiType"),
       apiBase: document.getElementById("apiBase"),
       model: document.getElementById("model"),
       apiKey: document.getElementById("apiKey"),
       command: document.getElementById("command"),
       send: document.getElementById("send"),
+      exampleInput: document.getElementById("exampleInput"),
       saveConfig: document.getElementById("saveConfig"),
       status: document.getElementById("status"),
       promptBox: document.getElementById("promptBox"),
       outputBox: document.getElementById("outputBox"),
+      errorMsg: document.getElementById("errorMsg"),
+      historySelect: document.getElementById("historySelect"),
+      clearHistory: document.getElementById("clearHistory"),
     };
+
+    const PRESETS = {
+      openai:    { base: "https://api.deepseek.com",   model: "deepseek-chat" },
+      gemini:    { base: "https://generativelanguage.googleapis.com", model: "gemini-2.5-flash" },
+      anthropic: { base: "https://api.anthropic.com",  model: "claude-3-5-sonnet-latest" },
+    };
+
+    const STORAGE_KEY = "wenyan_history_v2";
+    const MAX_HISTORY = 50;
+    const MAX_HISTORY_LABEL = 30;
+    const EXAMPLE_INPUTS = [
+      "朋友总拿我的善良当软弱，我想体面又不失分寸地回一句。",
+      "领导临时把我的成果写成了团队共同产出，我想委婉表达不满。",
+      "对方答应的事一拖再拖，我想发一段既克制又有力度的催促。",
+      "有人在背后议论我，我不想争吵，但想回一句有骨气的话。",
+      "朋友失恋很久走不出来，我想写一段有古意但不说教的安慰。",
+      "合作方临时加条件，我想写一段拒绝对方又保留余地的话。"
+    ];
+
+    function loadHistory() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+    }
+
+    function saveHistory(list) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_HISTORY)));
+    }
+
+    function formatHistoryLabel(text) {
+      return text.length > MAX_HISTORY_LABEL ? text.slice(0, MAX_HISTORY_LABEL) + "..." : text;
+    }
+
+    function formatHistoryTime(time) {
+      if (!time) return "--:--";
+      const date = new Date(time);
+      if (Number.isNaN(date.getTime())) return "--:--";
+      return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+    }
+
+    function scrollHistorySelection() {
+      const selected = els.historySelect.options[els.historySelect.selectedIndex];
+      if (!selected) return;
+      requestAnimationFrame(() => {
+        selected.scrollIntoView({ block: "nearest" });
+      });
+    }
+
+    function renderHistory(selectedValue = "") {
+      const list = loadHistory();
+      els.historySelect.innerHTML = '<option value="">— 无 —</option>';
+      list.forEach((item, i) => {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = `${formatHistoryTime(item.time)} ${formatHistoryLabel(item.cmd)}`;
+        els.historySelect.appendChild(opt);
+      });
+      els.historySelect.value = selectedValue;
+      scrollHistorySelection();
+    }
+
+    function addHistory(cmd, output, prompt, isError) {
+      const list = loadHistory();
+      list.unshift({ cmd, output, prompt, isError, time: Date.now() });
+      saveHistory(list);
+      renderHistory("0");
+    }
+
+    function applyPreset() {
+      const p = PRESETS[els.apiType.value];
+      if (p) { els.apiBase.value = p.base; els.model.value = p.model; }
+    }
+
+    async function loadConfig() {
+      try {
+        const res = await fetch("/api/config");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "加载失败");
+        if (data.api_type) els.apiType.value = data.api_type;
+        if (data.api_base) els.apiBase.value = data.api_base;
+        if (data.model) els.model.value = data.model;
+        els.apiKey.placeholder = data.has_api_key ? "已保存 API Key；留空则沿用服务端配置" : "可在下方保存后持久化";
+      } catch (e) {
+        applyPreset();
+      }
+    }
+
+    els.apiType.addEventListener("change", applyPreset);
 
     function showStatus(text, type) {
       els.status.textContent = text;
       els.status.className = "status" + (type ? " " + type : "");
     }
 
+    function fillExampleInput() {
+      const sample = EXAMPLE_INPUTS[Math.floor(Math.random() * EXAMPLE_INPUTS.length)];
+      els.command.value = sample;
+      els.command.focus();
+      els.command.setSelectionRange(sample.length, sample.length);
+      els.errorMsg.classList.remove("visible");
+      els.errorMsg.textContent = "";
+      showStatus("已填入范例输入", "ok");
+    }
+
+    els.exampleInput.addEventListener("click", fillExampleInput);
+
     els.send.addEventListener("click", async () => {
+      const command = els.command.value.trim();
+      if (!command) {
+        showStatus("请输入内容", "error");
+        els.errorMsg.textContent = "内容不能为空";
+        els.errorMsg.classList.add("visible");
+        return;
+      }
       els.send.disabled = true;
       showStatus("请求中", "");
       els.promptBox.textContent = "";
       els.outputBox.textContent = "";
+      els.errorMsg.classList.remove("visible");
+      els.errorMsg.textContent = "";
 
       try {
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            command: els.command.value,
+            command,
             api_key: els.apiKey.value,
             api_base: els.apiBase.value,
             model: els.model.value,
+            api_type: els.apiType.value,
           }),
         });
         const data = await res.json();
         els.promptBox.textContent = data.prompt || "";
-        els.outputBox.textContent = data.output || data.error || "";
-        showStatus(data.error ? "失败" : "完成", data.error ? "error" : "ok");
+        if (data.error) {
+          els.errorMsg.textContent = data.error;
+          els.errorMsg.classList.add("visible");
+          els.outputBox.textContent = "";
+          showStatus("失败", "error");
+          addHistory(command, data.error, data.prompt || "", true);
+        } else {
+          els.outputBox.textContent = data.output;
+          showStatus("完成", "ok");
+          addHistory(command, data.output, data.prompt || "", false);
+        }
       } catch (e) {
+        els.errorMsg.textContent = "请求失败：" + e.message;
+        els.errorMsg.classList.add("visible");
         showStatus("失败", "error");
+        addHistory(command, "请求失败", "", true);
       } finally {
         els.send.disabled = false;
       }
@@ -305,17 +537,63 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            api_type: els.apiType.value,
             api_base: els.apiBase.value,
             api_key: els.apiKey.value,
             model: els.model.value,
           }),
         });
         const data = await res.json();
-        showStatus(data.saved ? "已保存" : "无变更", "ok");
+        showStatus(data.saved && data.saved.length ? "已保存" : "无变更", "ok");
       } catch (e) {
         showStatus("保存失败", "error");
       }
     });
+
+    document.querySelectorAll(".copy-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const target = document.getElementById(btn.dataset.target);
+        const text = target.textContent;
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = "✓";
+          btn.classList.add("copied");
+          setTimeout(() => {
+            btn.textContent = "📋";
+            btn.classList.remove("copied");
+          }, 1500);
+        });
+      });
+    });
+
+    els.historySelect.addEventListener("change", () => {
+      const idx = els.historySelect.value;
+      if (idx === "") return;
+      scrollHistorySelection();
+      const item = loadHistory()[idx];
+      if (item) {
+        els.command.value = item.cmd;
+        els.promptBox.textContent = item.prompt || "";
+        if (item.isError) {
+          els.errorMsg.textContent = item.output;
+          els.errorMsg.classList.add("visible");
+          els.outputBox.textContent = "";
+        } else {
+          els.errorMsg.classList.remove("visible");
+          els.errorMsg.textContent = "";
+          els.outputBox.textContent = item.output;
+        }
+      }
+    });
+
+    els.clearHistory.addEventListener("click", () => {
+      localStorage.removeItem(STORAGE_KEY);
+      renderHistory();
+      showStatus("历史已清空", "ok");
+    });
+
+    loadConfig();
+    renderHistory();
   </script>
 </body>
 

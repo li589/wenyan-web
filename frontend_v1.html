@@ -13,6 +13,8 @@
       --border: #ddd;
       --accent: #333;
       --accent-hover: #000;
+      --danger: #a33a2b;
+      --ok: #1f7a4d;
     }
 
     * {
@@ -40,7 +42,8 @@
     }
 
     textarea,
-    input {
+    input,
+    select {
       font: inherit;
       width: 100%;
       border: 1px solid var(--border);
@@ -48,6 +51,7 @@
       padding: 10px 12px;
       outline: none;
       background: #fff;
+      color: var(--text);
     }
 
     textarea {
@@ -57,7 +61,8 @@
     }
 
     textarea:focus,
-    input:focus {
+    input:focus,
+    select:focus {
       border-color: var(--accent);
     }
 
@@ -80,9 +85,14 @@
       cursor: not-allowed;
     }
 
-    .output {
+    .output-wrap {
+      position: relative;
       margin-top: 20px;
+    }
+
+    .output {
       padding: 16px;
+      padding-right: 44px;
       background: #fff;
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -96,10 +106,89 @@
       color: var(--muted);
     }
 
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted);
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .output-wrap:hover .copy-btn,
+    .copy-btn:hover {
+      opacity: 1;
+    }
+
+    .copy-btn:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .copy-btn.copied {
+      color: var(--ok);
+      border-color: var(--ok);
+    }
+
+    .error-msg {
+      margin-top: 8px;
+      padding: 10px 14px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      color: var(--danger);
+      font-size: 13px;
+      display: none;
+    }
+
+    .error-msg.visible {
+      display: block;
+    }
+
     .status {
       margin-top: 8px;
       font-size: 13px;
       color: var(--muted);
+    }
+
+    .history-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      margin-bottom: 4px;
+    }
+
+    .history-bar label {
+      font-size: 13px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .history-bar select {
+      flex: 1;
+      font-size: 13px;
+      padding: 6px 10px;
+    }
+
+    .history-bar .btn-sm {
+      font-size: 12px;
+      padding: 4px 12px;
+      background: var(--bg);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .history-bar .btn-sm:hover {
+      background: var(--border);
+      color: var(--text);
     }
 
     details {
@@ -113,10 +202,21 @@
       margin-bottom: 8px;
     }
 
-    details input {
+    details input,
+    details select {
       margin-bottom: 6px;
       font-size: 13px;
       padding: 6px 10px;
+    }
+
+    details select {
+      font: inherit;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      outline: none;
     }
 
     .config-row {
@@ -129,22 +229,51 @@
       font-size: 12px;
       padding: 4px 12px;
     }
+
+    .btn-secondary {
+      background: var(--bg);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      margin-left: 8px;
+    }
+
+    .btn-secondary:hover {
+      background: var(--border);
+      color: var(--text);
+    }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <h1>结果</h1>
+    <h1>文言</h1>
     <textarea id="command" placeholder="输入你想说的话..."></textarea>
     <button id="send">生成回应</button>
+    <button id="exampleInput" class="btn-secondary" type="button">范例输入</button>
     <span class="status" id="status"></span>
-    <div class="output" id="output"></div>
+
+    <div class="output-wrap">
+      <div class="output" id="output"></div>
+      <button class="copy-btn" id="copyOutput" title="复制">📋</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="history-bar">
+      <label>历史</label>
+      <select id="historySelect"><option value="">— 无 —</option></select>
+      <button class="btn-sm" id="clearHistory">清空</button>
+    </div>
 
     <details>
       <summary>API 配置</summary>
+      <select id="apiType">
+        <option value="openai">OpenAI 兼容（DeepSeek / Moonshot / 智谱 / SiliconFlow / OpenRouter 等）</option>
+        <option value="gemini">Google Gemini 原生</option>
+        <option value="anthropic">Anthropic Claude 原生</option>
+      </select>
       <input id="apiKey" type="password" placeholder="API Key">
-      <input id="apiBase" placeholder="API Base URL" value="https://api.deepseek.com">
-      <input id="model" placeholder="Model" value="deepseek-v4-flash">
+      <input id="apiBase" placeholder="API Base URL">
+      <input id="model" placeholder="Model">
       <div class="config-row">
         <button id="saveConfig" class="btn-sm">保存配置</button>
       </div>
@@ -157,18 +286,123 @@
       send: document.getElementById("send"),
       status: document.getElementById("status"),
       output: document.getElementById("output"),
+      copyOutput: document.getElementById("copyOutput"),
+      errorMsg: document.getElementById("errorMsg"),
+      apiType: document.getElementById("apiType"),
       apiKey: document.getElementById("apiKey"),
       apiBase: document.getElementById("apiBase"),
       model: document.getElementById("model"),
       saveConfig: document.getElementById("saveConfig"),
+      historySelect: document.getElementById("historySelect"),
+      clearHistory: document.getElementById("clearHistory"),
+      exampleInput: document.getElementById("exampleInput"),
     };
+
+    const PRESETS = {
+      openai:    { base: "https://api.deepseek.com",   model: "deepseek-chat" },
+      gemini:    { base: "https://generativelanguage.googleapis.com", model: "gemini-2.5-flash" },
+      anthropic: { base: "https://api.anthropic.com",  model: "claude-3-5-sonnet-latest" },
+    };
+
+    const STORAGE_KEY = "wenyan_history_v1";
+    const MAX_HISTORY = 50;
+    const MAX_HISTORY_LABEL = 30;
+    const EXAMPLE_INPUTS = [
+      "朋友总拿我的善良当软弱，我想体面又不失分寸地回一句。",
+      "领导临时把我的成果写成了团队共同产出，我想委婉表达不满。",
+      "对方答应的事一拖再拖，我想发一段既克制又有力度的催促。",
+      "有人在背后议论我，我不想争吵，但想回一句有骨气的话。",
+      "朋友失恋很久走不出来，我想写一段有古意但不说教的安慰。",
+      "合作方临时加条件，我想写一段拒绝对方又保留余地的话。"
+    ];
+
+    function loadHistory() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+    }
+
+    function saveHistory(list) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_HISTORY)));
+    }
+
+    function formatHistoryLabel(text) {
+      return text.length > MAX_HISTORY_LABEL ? text.slice(0, MAX_HISTORY_LABEL) + "..." : text;
+    }
+
+    function formatHistoryTime(time) {
+      if (!time) return "--:--";
+      const date = new Date(time);
+      if (Number.isNaN(date.getTime())) return "--:--";
+      return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+    }
+
+    function scrollHistorySelection() {
+      const selected = els.historySelect.options[els.historySelect.selectedIndex];
+      if (!selected) return;
+      requestAnimationFrame(() => {
+        selected.scrollIntoView({ block: "nearest" });
+      });
+    }
+
+    function renderHistory(selectedValue = "") {
+      const list = loadHistory();
+      els.historySelect.innerHTML = '<option value="">— 无 —</option>';
+      list.forEach((item, i) => {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = `${formatHistoryTime(item.time)} ${formatHistoryLabel(item.cmd)}`;
+        els.historySelect.appendChild(opt);
+      });
+      els.historySelect.value = selectedValue;
+      scrollHistorySelection();
+    }
+
+    function addHistory(cmd, output, isError) {
+      const list = loadHistory();
+      list.unshift({ cmd, output, isError, time: Date.now() });
+      saveHistory(list);
+      renderHistory("0");
+    }
+
+    function fillExampleInput() {
+      const sample = EXAMPLE_INPUTS[Math.floor(Math.random() * EXAMPLE_INPUTS.length)];
+      els.command.value = sample;
+      els.command.focus();
+      els.command.setSelectionRange(sample.length, sample.length);
+      els.errorMsg.classList.remove("visible");
+      els.errorMsg.textContent = "";
+      els.status.textContent = "已填入范例输入";
+    }
+
+    function applyPreset() {
+      const p = PRESETS[els.apiType.value];
+      if (p) { els.apiBase.value = p.base; els.model.value = p.model; }
+    }
+
+    async function loadConfig() {
+      try {
+        const res = await fetch("/api/config");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "加载失败");
+        if (data.api_type) els.apiType.value = data.api_type;
+        if (data.api_base) els.apiBase.value = data.api_base;
+        if (data.model) els.model.value = data.model;
+        els.apiKey.placeholder = data.has_api_key ? "已保存 API Key；留空则沿用服务端配置" : "API Key";
+      } catch (e) {
+        applyPreset();
+      }
+    }
+
+    els.apiType.addEventListener("change", applyPreset);
+
+    els.exampleInput.addEventListener("click", fillExampleInput);
 
     els.send.addEventListener("click", async () => {
       const cmd = els.command.value.trim();
       if (!cmd) return;
       els.send.disabled = true;
       els.status.textContent = "生成中...";
-      els.output.textContent = "";
+      els.errorMsg.classList.remove("visible");
+      els.errorMsg.textContent = "";
 
       try {
         const res = await fetch("/api/generate", {
@@ -176,16 +410,30 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             command: cmd,
+            api_type: els.apiType.value,
             api_key: els.apiKey.value,
             api_base: els.apiBase.value,
             model: els.model.value,
           }),
         });
         const data = await res.json();
-        els.status.textContent = data.error ? data.error : "完成";
-        els.output.textContent = data.output || data.error || "";
+        if (data.error) {
+          els.errorMsg.textContent = data.error;
+          els.errorMsg.classList.add("visible");
+          els.status.textContent = "失败";
+          els.output.textContent = "";
+          addHistory(cmd, data.error, true);
+        } else {
+          els.output.textContent = data.output;
+          els.status.textContent = "完成";
+          addHistory(cmd, data.output, false);
+        }
       } catch (e) {
+        els.errorMsg.textContent = "请求失败：" + e.message;
+        els.errorMsg.classList.add("visible");
         els.status.textContent = "请求失败";
+        els.output.textContent = "";
+        addHistory(cmd, "请求失败", true);
       } finally {
         els.send.disabled = false;
       }
@@ -197,17 +445,58 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            api_type: els.apiType.value,
             api_base: els.apiBase.value,
             api_key: els.apiKey.value,
             model: els.model.value,
           }),
         });
         const data = await res.json();
-        els.status.textContent = data.saved ? "已保存" : "保存失败";
+        els.status.textContent = data.saved && data.saved.length ? "已保存" : "保存失败";
       } catch (e) {
         els.status.textContent = "保存失败";
       }
     });
+
+    els.copyOutput.addEventListener("click", () => {
+      const text = els.output.textContent;
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        els.copyOutput.textContent = "✓";
+        els.copyOutput.classList.add("copied");
+        setTimeout(() => {
+          els.copyOutput.textContent = "📋";
+          els.copyOutput.classList.remove("copied");
+        }, 1500);
+      });
+    });
+
+    els.historySelect.addEventListener("change", () => {
+      const idx = els.historySelect.value;
+      if (idx === "") return;
+      scrollHistorySelection();
+      const item = loadHistory()[idx];
+      if (item) {
+        els.command.value = item.cmd;
+        els.output.textContent = item.output;
+        if (item.isError) {
+          els.errorMsg.textContent = item.output;
+          els.errorMsg.classList.add("visible");
+        } else {
+          els.errorMsg.classList.remove("visible");
+          els.errorMsg.textContent = "";
+        }
+      }
+    });
+
+    els.clearHistory.addEventListener("click", () => {
+      localStorage.removeItem(STORAGE_KEY);
+      renderHistory();
+      els.status.textContent = "历史已清空";
+    });
+
+    loadConfig();
+    renderHistory();
   </script>
 </body>
 
